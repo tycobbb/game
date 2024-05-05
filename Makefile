@@ -17,12 +17,8 @@ $(eval $(call alias, build, b/0))
 $(eval $(call alias, b, b/0))
 
 ## build the game
-b/0: $(db-bin)
+b/0: b/clean $(db-bin)
 .PHONY: b/0
-
-## force a build
-b/force: b/clean b/0
-.PHONY: b/force
 
 ## clean the build
 b/clean:
@@ -41,3 +37,8 @@ $(eval $(call alias, r, r/0))
 r/0:
 	$(db-bin)
 .PHONY: r/0
+
+## run the game & build
+r/f: b/0
+	$(db-bin)
+.PHONY: r/f
