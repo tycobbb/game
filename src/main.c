@@ -1,5 +1,6 @@
 #include <raylib/raylib.h>
-#include "draw.h"
+#include "cam.h"
+#include "render.h"
 
 // -- main --
 int main(void) {
@@ -12,18 +13,15 @@ int main(void) {
         "hello world"
     );
 
-    Camera camera = {
-        .position = (Vector3){ 0.0f, 10.0f, 10.0f },
-        .target = (Vector3){ 0.0f, 0.0f, 0.0f },
-        .up = (Vector3){ 0.0f, 1.0f, 0.0f },
-        .fovy = 45.0f,
-        .projection = CAMERA_PERSPECTIVE,
-    };
+    Cam cam = Cam_New();
 
     SetTargetFPS(60);
 
     while (!WindowShouldClose()) {
-        Draw(camera);
+        Cam_Update(&cam);
+
+        // -- render --
+        Render(&cam);
     }
 
     CloseWindow();

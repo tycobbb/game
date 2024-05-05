@@ -1,9 +1,9 @@
 #ifndef DRAW_H
 #define DRAW_H
 
-#include <raylib/raylib.h>
+#include "cam.h"
 
 // -- commands --
-void Draw(Camera camera);
+void Render(Cam *camera);
 
 #endif

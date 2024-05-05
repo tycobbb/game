@@ -9,6 +9,7 @@ db-root = $(db-src)/main.c
 db-bin = $(db-dst)/game
 
 # -- lib --
+# -- l/raylib --
 l-raylib = raylib
 l-raylib-ver = 5.0
 l-raylib-ver-dylib = 500
@@ -22,12 +23,13 @@ tb-clang = clang \
 	-I"$(db-inc)" \
 	-I"$(db-src)" \
 	-L"$(db-lib)" \
-	-lraylib.$(l-raylib-ver-dylib) -framework OpenGL -Wl,-rpath,"@executable_path/../lib"
+	-lraylib.$(l-raylib-ver-dylib) -framework OpenGL -Wl,-rpath,"@executable_path/../lib" \
+	$(tb-clang-debug-opts)
 
 # -- targets --
 # -- t/build
 $(db-bin): $(db-dst)
-	$(tb-clang) -o $(db-bin) $(wildcard $(db-src)/*.c)
+	$(tb-clang) $(debug-opts) -o $(db-bin) $(wildcard $(db-src)/*.c)
 
 $(db-dst):
 	mkdir -p $(db-dst)

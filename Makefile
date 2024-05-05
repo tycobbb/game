@@ -17,13 +17,22 @@ $(eval $(call alias, build, b/0))
 $(eval $(call alias, b, b/0))
 
 ## build the game
-b/0: b/clean $(db-bin)
+b/0: debug-opts = -g
+b/0: b/force
 .PHONY: b/0
+
+## build the game for release
+b/release: b/force
+.PHONY: b/release
 
 ## clean the build
 b/clean:
 	rm -rf $(db-dst)
 .PHONY: b/clean
+
+# build & clean
+b/force: b/clean $(db-bin)
+.PHONY: b/force
 
 ## clean build & lib
 b/reset: b/clean d/clean

@@ -1,11 +1,12 @@
-#include "draw.h"
+#include <raylib/raylib.h>
+#include "render.h"
 
-// -- main --
-void Draw(Camera camera) {
+// -- commands --
+void Render(Cam *camera) {
     BeginDrawing();
         ClearBackground(RAYWHITE);
 
-        BeginMode3D(camera);
+        BeginMode3D(camera->camera3d);
             DrawCube((Vector3){-4.0f, 0.0f, 2.0f}, 2.0f, 5.0f, 2.0f, RED);
             DrawCubeWires((Vector3){-4.0f, 0.0f, 2.0f}, 2.0f, 5.0f, 2.0f, GOLD);
 
