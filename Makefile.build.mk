@@ -9,11 +9,19 @@ db-root = $(db-src)/main.c
 db-bin = $(db-dst)/game
 
 # -- lib --
-l-glfw = $(db-dep)/glfw-$(l-glfw-v)
-l-glfw-v = 3.3.6
+l-raylib = raylib
+l-raylib-version = 5.0
+l-raylib-dylib = libraylib.500.dylib
+l-raylib-dl = $(db-tmp)/raylib-$(l-raylib-version).tar.gz
+l-raylib-src = $(db-dep)/raylib-$(l-raylib-version)/src
+l-raylib-lib = $(db-lib)/$(l-raylib-dylib)
+l-raylib-inc = $(db-inc)/raylib
 
 # -- tools --
-tb-clang = clang -I"$(db-inc)" -L"$(db-lib)" -lglfw.3 -framework OpenGL -Wl,-rpath,"@executable_path/../lib"
+tb-clang = clang \
+	-I"$(db-inc)" \
+	-L"$(db-lib)" \
+	-lraylib -framework OpenGL -Wl,-rpath,"@executable_path/../lib"
 
 # -- targets --
 # -- t/build
@@ -23,24 +31,34 @@ $(db-bin): $(db-dst)
 $(db-dst):
 	mkdir -p $(db-dst)
 
-# -- t/lib
-$(l-glfw):
+# -- t/raylib
+$(l-raylib): $(l-raylib-lib) $(l-raylib-inc)
+.PHONY: $(l-raylib)
+
+$(l-raylib-lib): $(l-raylib-src)
+	cd $(l-raylib-src) \
+		&& make PLATFORM=PLATFORM_DESKTOP RAYLIB_LIBTYPE=SHARED
+
+	cd $(db-lib) \
+		&& ln -s ../$(l-raylib-src)/$(l-raylib-dylib) .
+
+$(l-raylib-inc): $(l-raylib-src)
+	mkdir -p $(l-raylib-inc)
+
+	cd $(l-raylib-inc) \
+		&& for h in ../../$(l-raylib-src)/*.h; do ln -s "$$h" .; done
+
+$(l-raylib-src): $(l-raylib-dl)
+	tar -xvf $(l-raylib-dl) -C $(db-dep)
+
+$(l-raylib-dl):
 	curl \
-		-L https://github.com/glfw/glfw/releases/download/$(l-glfw-v)/glfw-$(l-glfw-v).bin.MACOS.zip \
-		-o $(db-tmp)/glfw-$(l-glfw-v).zip
-
-	unzip $(db-tmp)/glfw-$(l-glfw-v).zip \
-		-d $(db-tmp)
-
-	rm $(db-tmp)/glfw-$(l-glfw-v).zip
-	mv $(db-tmp)/* $(l-glfw)
-
-	mv $(l-glfw)/include/* $(db-inc)
-	mv $(l-glfw)/lib-x86_64/* $(db-lib)
+		-L https://github.com/raysan5/raylib/archive/refs/tags/$(l-raylib-version).tar.gz \
+		-o $(l-raylib-dl)
 
 # -- t/dirs
 d/init: $(db-lib) $(db-inc) $(db-dep) $(db-tmp)
-.PHONY: i/dirs
+.PHONY: d/init
 
 d/clean:
 	rm -rf $(db-lib)

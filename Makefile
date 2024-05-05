@@ -9,7 +9,7 @@ $(eval $(call alias, init, i/0))
 $(eval $(call alias, i, i/0))
 
 ## init dev env
-i/0: d/init $(l-glfw)
+i/0: d/init $(l-glfw) $(l-raylib)
 .PHONY: i/0
 
 ## -- build (b) --
