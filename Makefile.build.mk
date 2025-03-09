@@ -11,6 +11,7 @@ db-bin = $(db-dst)/game
 # -- lib --
 l-glfw = $(db-dep)/glfw-$(l-glfw-v)
 l-glfw-v = 3.3.6
+l-glfw-arch = arm64
 
 # -- tools --
 tb-clang = clang -I"$(db-inc)" -L"$(db-lib)" -lglfw.3 -framework OpenGL -Wl,-rpath,"@executable_path/../lib"
@@ -36,7 +37,7 @@ $(l-glfw):
 	mv $(db-tmp)/* $(l-glfw)
 
 	mv $(l-glfw)/include/* $(db-inc)
-	mv $(l-glfw)/lib-x86_64/* $(db-lib)
+	mv $(l-glfw)/lib-$(l-glfw-arch)/* $(db-lib)
 
 # -- t/dirs
 d/init: $(db-lib) $(db-inc) $(db-dep) $(db-tmp)
