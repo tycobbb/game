@@ -1,15 +1,14 @@
 #define GL_SILENCE_DEPRECATION
 #define GLFW_INCLUDE_GLCOREARB
 
-#import <GLFW/glfw3.h>
-#import <stdbool.h>
-#import <stdio.h>
+#include <GLFW/glfw3.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include "shader.h"
 
 bool initialize();
 void readInput(GLFWwindow* window);
 void onFrameBufferSizeChanged(GLFWwindow* window, int width, int height);
-GLuint ShaderCreate(GLuint shaderType, const char* shaderSource);
-void ShaderRelease(GLuint shaderId);
 GLuint ShaderProgramCreate(GLuint vertexShader, GLuint fragmentShader);
 
 // -- constants --
@@ -117,27 +116,6 @@ void readInput(GLFWwindow *window) {
     }
 }
 
-GLuint ShaderCreate(GLuint shaderType, const char* shaderSource) {
-    GLuint shaderId = glCreateShader(shaderType);
-    glShaderSource(shaderId, 1, &shaderSource, NULL);
-    glCompileShader(shaderId);
-
-    GLint success;
-    glGetShaderiv(shaderId, GL_COMPILE_STATUS, &success);
-
-    if(success == GL_FALSE) {
-        char infoLog[512];
-        glGetShaderInfoLog(shaderId, 512, NULL, infoLog);
-        printf("ERROR::SHADER::%d::COMPILATION_FAILED\n%s\n", shaderType, infoLog);
-    }
-
-    return shaderId;
-}
-
-void ShaderRelease(GLuint shaderId) {
-    glDeleteShader(shaderId);
-}
-
 GLuint ShaderProgramCreate(GLuint vertexShader, GLuint fragmentShader) {
     GLuint programId = glCreateProgram();
 
@@ -157,7 +135,6 @@ GLuint ShaderProgramCreate(GLuint vertexShader, GLuint fragmentShader) {
 }
 
 void ShaderProgramRelease(GLuint programId) {
-
 }
 
 // -- events --

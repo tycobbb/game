@@ -14,12 +14,16 @@ l-glfw-v = 3.3.6
 l-glfw-arch = arm64
 
 # -- tools --
-tb-clang = clang -I"$(db-inc)" -L"$(db-lib)" -lglfw.3 -framework OpenGL -Wl,-rpath,"@executable_path/../lib"
+tb-clang = clang \
+	-I"$(db-inc)" \
+	-I"$(db-src)" \
+	-L"$(db-lib)" \
+	-lglfw.3 -framework OpenGL -Wl,-rpath,"@executable_path/../lib"
 
 # -- targets --
 # -- t/build
 $(db-bin): $(db-dst)
-	$(tb-clang) -o $(db-bin) $(db-root)
+	$(tb-clang) -o $(db-bin) $(wildcard $(db-src)/*.c)
 
 $(db-dst):
 	mkdir -p $(db-dst)
