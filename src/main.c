@@ -38,8 +38,7 @@ int main(void) {
     }
 
     // create window w/ title
-    GLFWwindow* window = glfwCreateWindow(
-        640, 480, "hello world", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(640, 480, "hello world", NULL, NULL);
     if (window == NULL) {
         glfwTerminate();
         return -1;
@@ -66,7 +65,7 @@ int main(void) {
         { .x = -0.5f, .y = +0.5f, .z = -2.0f }
     };
 
-    // apply ortho transform
+    // create ortho transform
     float l = -2.0f;
     float r = +2.0f;
     float b = -2.0f;
@@ -74,24 +73,32 @@ int main(void) {
     float n = -1.0f;
     float f = -3.0f;
 
-    Transform orthoViewTransform;
-    orthoViewTransform.matrix[0][0] = 2.0f / (r - l); // 1
-    orthoViewTransform.matrix[0][3] = -(r + l) / (r - l); // 0
-    orthoViewTransform.matrix[1][1] = 2.0f / (t - b); // 1
-    orthoViewTransform.matrix[1][3] = -(t + b) / (t - b); // 0
-    orthoViewTransform.matrix[2][2] = 2.0f / (n - f); // 1
-    orthoViewTransform.matrix[2][3] = -(n + f) / (n - f); // 2
-    orthoViewTransform.matrix[3][3] = 1.0f; // 1
-    // expected: {+0.5, +0.5, +0f}
+    Transform orthographicProjection;
+    TransformInitOrthographicProjection(&orthographicProjection, l, r, b, t, n, f);
+
+    Vec3 eye = {.x = 0.0f, .y = 0.0f, .z = 0.0f};
+    Vec3 gaze = {.x = 0.0f, .y = 0.0f, .z = -1.0f};
+    Vec3 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
+
+    // create camera transform
+    Transform camera;
+    TransformInitCamera(&camera, eye, gaze, up);
+
+    // combine world -> canonical view transforms
+    Transform transform;
+    TransformMultiply(orthographicProjection, camera, &transform);
+
+    // apply transform to objects
+    Vec3 glQuad[ARRAY_LEN(quad)];
 
     for(int i = 0; i < ARRAY_LEN(quad); i++) {
         VecH vertex;
         VecHFromVec3(quad[i], 1.0f, &vertex);
 
         VecH transformedVertex;
-        TransformMultiply(orthoViewTransform, vertex, &transformedVertex);
+        TransformApply(transform, vertex, &transformedVertex);
 
-        Vec3FromVecH(transformedVertex, quad + i);
+        Vec3FromVecH(transformedVertex, glQuad + i);
     }
 
     // while the window is open
@@ -100,8 +107,8 @@ int main(void) {
         readInput(window);
 
         // setup buffers
-        float vertices[ARRAY_LEN(quad) * 3];
-        GlVec3ToVertices(ARRAY_LEN(quad), quad, vertices);
+        float vertices[ARRAY_LEN(glQuad) * 3];
+        GlVec3ToVertices(ARRAY_LEN(glQuad), glQuad, vertices);
 
         GLuint indices[] = {
             0, 1, 3, // top right triangle
