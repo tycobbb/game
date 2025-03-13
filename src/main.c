@@ -4,7 +4,13 @@
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include "glutil.h"
 #include "shader.h"
+#include "vec3.h"
+#include "vech.h"
+#include "vecutil.h"
+#include "transform.h"
+#include "arrayutil.h"
 
 bool initialize();
 void readInput(GLFWwindow* window);
@@ -32,7 +38,8 @@ int main(void) {
     }
 
     // create window w/ title
-    GLFWwindow* window = glfwCreateWindow(640, 480, "hello world", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(
+        640, 480, "hello world", NULL, NULL);
     if (window == NULL) {
         glfwTerminate();
         return -1;
@@ -51,16 +58,54 @@ int main(void) {
     ShaderRelease(vertexShader);
     ShaderRelease(fragmentShader);
 
+    // the world
+    Vec3 quad[] = {
+        { .x = +0.5f, .y = +0.5f, .z = -2.0f },
+        { .x = +0.5f, .y = -0.5f, .z = -2.0f },
+        { .x = -0.5f, .y = -0.5f, .z = -2.0f },
+        { .x = -0.5f, .y = +0.5f, .z = -2.0f }
+    };
+
+    // apply ortho transform
+    float l = -2.0f;
+    float r = +2.0f;
+    float b = -2.0f;
+    float t = +2.0f;
+    float n = -1.0f;
+    float f = -3.0f;
+
+    Transform orthoViewTransform;
+    orthoViewTransform.matrix[0][0] = 2.0f / (r - l); // 1
+    orthoViewTransform.matrix[0][3] = -(r + l) / (r - l); // 0
+    orthoViewTransform.matrix[1][1] = 2.0f / (t - b); // 1
+    orthoViewTransform.matrix[1][3] = -(t + b) / (t - b); // 0
+    orthoViewTransform.matrix[2][2] = 2.0f / (n - f); // 1
+    orthoViewTransform.matrix[2][3] = -(n + f) / (n - f); // 2
+    orthoViewTransform.matrix[3][3] = 1.0f; // 1
+    // expected: {+0.5, +0.5, +0f}
+
+    for(int i = 0; i < ARRAY_LEN(quad); i++) {
+        VecH vertex;
+        VecHFromVec3(quad[i], 1.0f, &vertex);
+
+        VecH transformedVertex;
+        TransformMultiply(orthoViewTransform, vertex, &transformedVertex);
+
+        Vec3FromVecH(transformedVertex, quad + i);
+    }
+
     // while the window is open
     while (!glfwWindowShouldClose(window)) {
         // input
         readInput(window);
 
         // setup buffers
-        float vertices[] = {
-            -0.5f, -0.5f, +0.0f,
-            +0.5f, -0.5f, +0.0f,
-            +0.0f, +0.5f, +0.0f
+        float vertices[ARRAY_LEN(quad) * 3];
+        GlVec3ToVertices(ARRAY_LEN(quad), quad, vertices);
+
+        GLuint indices[] = {
+            0, 1, 3, // top right triangle
+            1, 2, 3  // bottom left triangle
         };
 
         GLuint vao;
@@ -74,6 +119,11 @@ int main(void) {
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
 
+        GLuint ebo;
+        glGenBuffers(1, &ebo);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
         glBindVertexArray(0);
 
         // render
@@ -82,7 +132,7 @@ int main(void) {
 
         glUseProgram(shaderProgram);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
         // swap front & back buffers

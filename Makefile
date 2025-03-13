@@ -24,6 +24,10 @@ b/0: $(db-bin)
 b/force: b/clean b/0
 .PHONY: b/force
 
+## build the game w/ debug symbols
+b/debug: b/force $(db-dbg)
+.PHONY: b/debug
+
 ## clean the build
 b/clean:
 	rm -rf $(db-dst)
@@ -45,3 +49,8 @@ r/0:
 ## run (& re-build) the game
 r/dev: b/force r/0
 .PHONY: r/dev
+
+## run (& re-build) the debug game
+r/debug: b/debug
+	lldb $(db-dbg)
+.PHONY: r/debug

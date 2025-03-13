@@ -5,8 +5,8 @@ db-lib = ./lib
 db-inc = ./include
 db-tmp = ./tmp
 db-dep = ./dep
-db-root = $(db-src)/main.c
 db-bin = $(db-dst)/game
+db-dbg = $(db-dst)/game-debug
 
 # -- lib --
 l-glfw = $(db-dep)/glfw-$(l-glfw-v)
@@ -24,6 +24,10 @@ tb-clang = clang \
 # -- t/build
 $(db-bin): $(db-dst)
 	$(tb-clang) -o $(db-bin) $(wildcard $(db-src)/*.c)
+
+-- todo: remove duplication w/ $(db-bin)
+$(db-dbg): $(db-dst)
+	$(tb-clang) -g -O0 -o $(db-dbg) $(wildcard $(db-src)/*.c)
 
 $(db-dst):
 	mkdir -p $(db-dst)
