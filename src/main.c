@@ -6,14 +6,15 @@
 #include <stdio.h>
 #include "glutil.h"
 #include "shader.h"
+#include "vec2.h"
 #include "vec3.h"
 #include "vech.h"
 #include "vecutil.h"
 #include "transform.h"
 #include "arrayutil.h"
+#include "input.h"
 
 bool initialize();
-void readInput(GLFWwindow* window);
 void onFrameBufferSizeChanged(GLFWwindow* window, int width, int height);
 GLuint ShaderProgramCreate(GLuint vertexShader, GLuint fragmentShader);
 
@@ -29,6 +30,8 @@ const char* fragmentShaderSource = "#version 330 core\n"
     "void main() {\n"
     "    fragColor = vec4(1.0f, 0.0f, 1.0f, 1.0f);\n"
     "}\0";
+
+const float CAMERA_SPEED = 0.01f;
 
 // -- main --
 int main(void) {
@@ -80,31 +83,43 @@ int main(void) {
     Vec3 gaze = {.x = 0.0f, .y = 0.0f, .z = -1.0f};
     Vec3 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
 
-    // create camera transform
-    Transform camera;
-    TransformInitCamera(&camera, eye, gaze, up);
-
-    // combine world -> canonical view transforms
-    Transform transform;
-    TransformMultiply(orthographicProjection, camera, &transform);
-
-    // apply transform to objects
-    Vec3 glQuad[ARRAY_LEN(quad)];
-
-    for(int i = 0; i < ARRAY_LEN(quad); i++) {
-        VecH vertex;
-        VecHFromVec3(quad[i], 1.0f, &vertex);
-
-        VecH transformedVertex;
-        TransformApply(transform, vertex, &transformedVertex);
-
-        Vec3FromVecH(transformedVertex, glQuad + i);
-    }
-
     // while the window is open
+    Input input;
     while (!glfwWindowShouldClose(window)) {
-        // input
-        readInput(window);
+        InputRead(&input, window);
+
+        // handle input
+        if (input.quit) {
+            glfwSetWindowShouldClose(window, true);
+        }
+
+        // move camera
+        Vec2 cameraTranslate;
+        Vec2Scale(input.cameraTranslate, CAMERA_SPEED, &cameraTranslate);
+
+        eye.x += cameraTranslate.x;
+        eye.y += cameraTranslate.y;
+
+        // create camera transform
+        Transform camera;
+        TransformInitCamera(&camera, eye, gaze, up);
+
+        // combine world -> canonical view transforms
+        Transform transform;
+        TransformMultiply(orthographicProjection, camera, &transform);
+
+        // apply transform to objects
+        Vec3 glQuad[ARRAY_LEN(quad)];
+
+        for(int i = 0; i < ARRAY_LEN(quad); i++) {
+            VecH vertex;
+            VecHFromVec3(quad[i], 1.0f, &vertex);
+
+            VecH transformedVertex;
+            TransformApply(transform, vertex, &transformedVertex);
+
+            Vec3FromVecH(transformedVertex, glQuad + i);
+        }
 
         // setup buffers
         float vertices[ARRAY_LEN(glQuad) * 3];
@@ -165,12 +180,6 @@ bool initialize() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
     return true;
-}
-
-void readInput(GLFWwindow *window) {
-    if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-        glfwSetWindowShouldClose(window, true);
-    }
 }
 
 GLuint ShaderProgramCreate(GLuint vertexShader, GLuint fragmentShader) {
