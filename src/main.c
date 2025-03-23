@@ -4,7 +4,6 @@
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include "glutil.h"
 #include "shader.h"
 #include "rgb.h"
 #include "vec2.h"
@@ -14,32 +13,28 @@
 #include "transform.h"
 #include "arrayutil.h"
 #include "input.h"
+#include "file.h"
 
 bool initialize();
 void onFrameBufferSizeChanged(GLFWwindow* window, int width, int height);
 GLuint ShaderProgramCreate(GLuint vertexShader, GLuint fragmentShader);
 
 // -- constants --
-const char* vertexShaderSource = "#version 330 core\n"
-    "layout(location=0) in vec3 in_Pos;\n"
-    "layout(location=1) in vec3 in_Color;\n"
-    "out vec3 vColor;\n"
-    "void main() {\n"
-    "    vColor = in_Color;"
-    "    gl_Position = vec4(in_Pos.x, in_Pos.y, in_Pos.z, 1.0);\n"
-    "}\0";
-
-const char* fragmentShaderSource = "#version 330 core\n"
-    "layout(location=0) out vec4 fragmentColor;\n"
-    "in vec3 vColor;\n"
-    "void main() {\n"
-    "    fragmentColor = vec4(vColor, 1.0);\n"
-    "}\0";
-
 const float CAMERA_SPEED = 0.01f;
 
 // -- main --
 int main(void) {
+    // load shaders
+    File vertexShaderSource;
+    if (!FileLoad(vertexShaderSource, "src/shaders/vert.glsl")) {
+        return 1;
+    }
+
+    File fragmentShaderSource;
+    if (!FileLoad(fragmentShaderSource, "src/shaders/frag.glsl")) {
+        return 1;
+    }
+
     // init glfw
     if (!initialize()) {
         return -1;
