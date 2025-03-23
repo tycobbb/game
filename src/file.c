@@ -9,8 +9,11 @@ bool FileLoad(File this, char* filePath) {
         printf("ERROR::FILE::LOAD_FAILED\n%s\n%d\n", filePath, errno);
         return false;
     }
+
     size_t bytesRead = fread(this, 1, 1024, f);
     this[bytesRead] = '\0';
+
     fclose(f);
+
     return true;
 }

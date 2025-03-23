@@ -1,5 +1,9 @@
 {
+  "makefile.configureOnOpen": false,
   "[c]": {
+    "editor.tabSize": 4
+  },
+  "[glsl]": {
     "editor.tabSize": 4
   }
 }

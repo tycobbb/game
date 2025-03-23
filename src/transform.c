@@ -3,11 +3,12 @@
 #include "vec3.h"
 #include "vech.h"
 #include "vecutil.h"
+#include <math.h>
 
 void TransformInitIdentity(Transform* out);
 void TransformGetRow(Transform a, int i, VecH* out);
-void TransformGetColumn(Transform a, int j, VecH* out);
 void TransformSetRow(Transform* this, int i, VecH row);
+void TransformGetColumn(Transform a, int j, VecH* out);
 
 void TransformInit(Transform* this) {
     for (int i = 0; i < ARRAY_LEN(this->matrix); i++) {
@@ -77,16 +78,17 @@ void TransformInitOrthographicProjection(Transform* this, float l, float r, floa
     this->matrix[3][3] = 1.0f;
 }
 
-void TransformInitPerspectiveProjection(Transform* this, float l, float r, float b, float t, float n, float f) {
+void TransformInitPerspectiveProjection(Transform* this, float fovY, float aspect, float n, float f) {
     TransformInit(this);
 
-    this->matrix[0][0] = (2.0f * n) / (r - l);
-    this->matrix[0][2] = (l + r) / (l - r);
-    this->matrix[1][1] = (2.0f * n) / (t - b);
-    this->matrix[1][2] = (b + t) / (b - t);
+    float fovY_2 = fovY / 2;
+    float scaleY = cos(fovY_2) / sin(fovY_2);
+
+    this->matrix[0][0] = scaleY / aspect;
+    this->matrix[1][1] = scaleY;
     this->matrix[2][2] = (f + n) / (n - f);
     this->matrix[2][3] = (2.0f * f * n) / (f - n);
-    this->matrix[3][2] = 1.0f;
+    this->matrix[3][2] = -1.0f;
 }
 
 void TransformApply(Transform transform, VecH vec, VecH* out) {
@@ -135,4 +137,12 @@ void TransformGetColumn(Transform a, int j, VecH* out) {
     out->y = a.matrix[1][j];
     out->z = a.matrix[2][j];
     out->w = a.matrix[3][j];
+}
+
+void TransformToArray(Transform this, TransformArray out) {
+    for (int row = 0; row < ARRAY_LEN(this.matrix); row++) {
+        for (int column = 0; column < ARRAY_LEN(this.matrix[0]); column++) {
+            out[row * 4 + column] = this.matrix[row][column];
+        }
+    }
 }
