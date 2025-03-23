@@ -12,6 +12,8 @@ void TransformInit(Transform* this);
 
 void TransformInitOrthographicProjection(Transform* transform, float l, float r, float b, float t, float n, float f);
 
+void TransformInitPerspectiveProjection(Transform* transform, float l, float r, float b, float t, float n, float f);
+
 void TransformInitCamera(Transform* transform, Vec3 eye, Vec3 gaze, Vec3 up);
 
 void TransformApply(Transform transform, VecH vec, VecH* out);

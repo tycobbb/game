@@ -13,6 +13,9 @@ l-glfw = $(db-dep)/glfw-$(l-glfw-v)
 l-glfw-v = 3.3.6
 l-glfw-arch = arm64
 
+l-ufbx = $(db-dep)/ufbx-$(l-ufbx-v)
+l-ufbx-v = 0.17.1
+
 # -- tools --
 tb-clang = clang \
 	-I"$(db-inc)" \
@@ -46,6 +49,17 @@ $(l-glfw):
 
 	mv $(l-glfw)/include/* $(db-inc)
 	mv $(l-glfw)/lib-$(l-glfw-arch)/* $(db-lib)
+
+$(l-ufbx):
+	curl \
+		-L https://github.com/ufbx/ufbx/archive/refs/tags/v$(l-ufbx-v).zip \
+		-o $(db-tmp)/ufbx-$(l-ufbx-v).zip
+
+	unzip $(db-tmp)/ufbx-$(l-ufbx-v).zip \
+		-d $(db-tmp)
+
+	rm $(db-tmp)/ufbx-$(l-ufbx-v).zip
+	mv $(db-tmp)/* $(l-ufbx)
 
 # -- t/dirs
 d/init: $(db-lib) $(db-inc) $(db-dep) $(db-tmp)

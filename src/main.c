@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include "glutil.h"
 #include "shader.h"
+#include "rgb.h"
 #include "vec2.h"
 #include "vec3.h"
 #include "vech.h"
@@ -20,15 +21,19 @@ GLuint ShaderProgramCreate(GLuint vertexShader, GLuint fragmentShader);
 
 // -- constants --
 const char* vertexShaderSource = "#version 330 core\n"
-    "layout (location = 0) in vec3 aPos;\n"
+    "layout(location=0) in vec3 in_Pos;\n"
+    "layout(location=1) in vec3 in_Color;\n"
+    "out vec3 vColor;\n"
     "void main() {\n"
-    "    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
+    "    vColor = in_Color;"
+    "    gl_Position = vec4(in_Pos.x, in_Pos.y, in_Pos.z, 1.0);\n"
     "}\0";
 
 const char* fragmentShaderSource = "#version 330 core\n"
-    "out vec4 fragColor; \n"
+    "layout(location=0) out vec4 fragmentColor;\n"
+    "in vec3 vColor;\n"
     "void main() {\n"
-    "    fragColor = vec4(1.0f, 0.0f, 1.0f, 1.0f);\n"
+    "    fragmentColor = vec4(vColor, 1.0);\n"
     "}\0";
 
 const float CAMERA_SPEED = 0.01f;
@@ -61,11 +66,26 @@ int main(void) {
     ShaderRelease(fragmentShader);
 
     // the world
-    Vec3 quad[] = {
-        { .x = +0.5f, .y = +0.5f, .z = -2.0f },
-        { .x = +0.5f, .y = -0.5f, .z = -2.0f },
-        { .x = -0.5f, .y = -0.5f, .z = -2.0f },
-        { .x = -0.5f, .y = +0.5f, .z = -2.0f }
+    Vec3 cubeVertices[] = {
+        { .x = +0.5f, .y = +0.5f, .z = -2.0f }, // 0 (front top right)
+        { .x = +0.5f, .y = -0.5f, .z = -2.0f }, // 1 (front bottom right)
+        { .x = -0.5f, .y = -0.5f, .z = -2.0f }, // 2 (front bottom left)
+        { .x = -0.5f, .y = +0.5f, .z = -2.0f }, // 3 (front top left)
+        { .x = +0.5f, .y = +0.5f, .z = -3.0f }, // 4 (back top right)
+        { .x = +0.5f, .y = -0.5f, .z = -3.0f }, // 5 (back bottom right)
+        { .x = -0.5f, .y = -0.5f, .z = -3.0f }, // 6 (back bottom left)
+        { .x = -0.5f, .y = +0.5f, .z = -3.0f }  // 7 (back top left)
+    };
+
+    Rgb cubeColors[] = {
+        { .r = 1.0f, .g = 1.0f, .b = 1.0f },
+        { .r = 0.0f, .g = 1.0f, .b = 1.0f },
+        { .r = 0.0f, .g = 0.0f, .b = 1.0f },
+        { .r = 1.0f, .g = 0.0f, .b = 0.0f },
+        { .r = 1.0f, .g = 1.0f, .b = 0.0f },
+        { .r = 1.0f, .g = 0.0f, .b = 1.0f },
+        { .r = 0.0f, .g = 1.0f, .b = 0.0f },
+        { .r = 0.0f, .g = 0.0f, .b = 0.0f },
     };
 
     // create ortho transform
@@ -74,10 +94,10 @@ int main(void) {
     float b = -2.0f;
     float t = +2.0f;
     float n = -1.0f;
-    float f = -3.0f;
+    float f = -5.0f;
 
-    Transform orthographicProjection;
-    TransformInitOrthographicProjection(&orthographicProjection, l, r, b, t, n, f);
+    Transform perpectiveProjection;
+    TransformInitPerspectiveProjection(&perpectiveProjection, l, r, b, t, n, f);
 
     Vec3 eye = {.x = 0.0f, .y = 0.0f, .z = 0.0f};
     Vec3 gaze = {.x = 0.0f, .y = 0.0f, .z = -1.0f};
@@ -106,43 +126,82 @@ int main(void) {
 
         // combine world -> canonical view transforms
         Transform transform;
-        TransformMultiply(orthographicProjection, camera, &transform);
+        TransformMultiply(perpectiveProjection, camera, &transform);
 
-        // apply transform to objects
-        Vec3 glQuad[ARRAY_LEN(quad)];
+        // setup vertices for opengl
+        GLfloat vertices[(ARRAY_LEN(cubeVertices) + ARRAY_LEN(cubeColors)) * 3];
 
-        for(int i = 0; i < ARRAY_LEN(quad); i++) {
+        for(int i = 0; i < ARRAY_LEN(cubeVertices); i++) {
+            // apply transform to objects
             VecH vertex;
-            VecHFromVec3(quad[i], 1.0f, &vertex);
+            VecHFromVec3(cubeVertices[i], 1.0f, &vertex);
 
             VecH transformedVertex;
             TransformApply(transform, vertex, &transformedVertex);
 
-            Vec3FromVecH(transformedVertex, glQuad + i);
+            Vec3 projectedVertex;
+            Vec3FromVecH(transformedVertex, &projectedVertex);
+
+            int j = i * 6;
+            vertices[j + 0] = projectedVertex.x;
+            vertices[j + 1] = projectedVertex.y;
+            vertices[j + 2] = projectedVertex.z;
+
+            // apply vertex color
+            Rgb vertexColor = cubeColors[i];
+            vertices[j + 3] = vertexColor.r;
+            vertices[j + 4] = vertexColor.g;
+            vertices[j + 5] = vertexColor.b;
         }
 
         // setup buffers
-        float vertices[ARRAY_LEN(glQuad) * 3];
-        GlVec3ToVertices(ARRAY_LEN(glQuad), glQuad, vertices);
-
         GLuint indices[] = {
-            0, 1, 3, // top right triangle
-            1, 2, 3  // bottom left triangle
+            // front face
+            0, 1, 3,
+            1, 2, 3,
+            // top face
+            3, 4, 0,
+            3, 7, 4,
+            // back face
+            4, 5, 7,
+            7, 5, 6,
+            // bottom face
+            1, 5, 6,
+            1, 6, 2,
+            // left face
+            3, 2, 7,
+            2, 6, 7,
+            // right face
+            0, 4, 1,
+            1, 4, 5
         };
 
+        // create buffers
         GLuint vao;
         glGenVertexArrays(1, &vao);
-        glBindVertexArray(vao);
 
         GLuint vbo;
         glGenBuffers(1, &vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
 
         GLuint ebo;
         glGenBuffers(1, &ebo);
+
+        // bind vertex array
+        glBindVertexArray(vao);
+
+        // bind vertex data
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        // position attribute
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)0);
+        glEnableVertexAttribArray(0);
+
+        // color attribute
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+        glEnableVertexAttribArray(1);
+
+        // bind element data
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
@@ -154,7 +213,7 @@ int main(void) {
 
         glUseProgram(shaderProgram);
         glBindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, ARRAY_LEN(indices), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
         // swap front & back buffers

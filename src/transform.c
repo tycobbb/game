@@ -52,7 +52,7 @@ void TransformInitCamera(Transform* this, Vec3 eye, Vec3 gaze, Vec3 up) {
 
     origin.matrix[0][3] = -eye.x;
     origin.matrix[1][3] = -eye.y;
-    origin.matrix[2][3] = -eye.x;
+    origin.matrix[2][3] = -eye.z;
 
     TransformMultiply(basis, origin, this);
 }
@@ -75,6 +75,18 @@ void TransformInitOrthographicProjection(Transform* this, float l, float r, floa
     this->matrix[2][2] = 2.0f / (n - f);
     this->matrix[2][3] = -(n + f) / (n - f);
     this->matrix[3][3] = 1.0f;
+}
+
+void TransformInitPerspectiveProjection(Transform* this, float l, float r, float b, float t, float n, float f) {
+    TransformInit(this);
+
+    this->matrix[0][0] = (2.0f * n) / (r - l);
+    this->matrix[0][2] = (l + r) / (l - r);
+    this->matrix[1][1] = (2.0f * n) / (t - b);
+    this->matrix[1][2] = (b + t) / (b - t);
+    this->matrix[2][2] = (f + n) / (n - f);
+    this->matrix[2][3] = (2.0f * f * n) / (f - n);
+    this->matrix[3][2] = 1.0f;
 }
 
 void TransformApply(Transform transform, VecH vec, VecH* out) {
