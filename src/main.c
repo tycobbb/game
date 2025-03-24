@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <ufbx.h>
 #include "arrayutil.h"
 #include "input.h"
 #include "mathutil.h"
@@ -39,18 +40,25 @@ int main(void) {
         return 2;
     }
 
-    // init glfw
-    if (!initialize()) {
+    // load the scene
+    ufbx_load_opts sceneLoadOpts = {0};
+    ufbx_error sceneLoadError;
+
+    ufbx_scene* scene = ufbx_load_file("assets/cube.fbx", &sceneLoadOpts, &sceneLoadError);
+    if (scene == NULL) {
+        printf("ERROR::SCENE::LOAD_FAILED\n%s\n", sceneLoadError.description.data);
         return 3;
     }
 
-    // create window w/ title
-    int initialWidth = 640;
-    int initialHeight = 480;
+    // init glfw
+    if (!initialize()) {
+        return 4;
+    }
 
+    // create window w/ title
     GLFWwindow* window = glfwCreateWindow(
-        initialWidth,
-        initialHeight,
+        640,
+        480,
         "cube",
         NULL,
         NULL
@@ -66,7 +74,10 @@ int main(void) {
 
     // update in response to viewport resizing
     glfwSetFramebufferSizeCallback(window, onFrameBufferSizeChanged);
-    onFrameBufferSizeChanged(window, initialWidth, initialHeight);
+
+    int fbWidth, fbHeight;
+    glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+    onFrameBufferSizeChanged(window, fbWidth, fbHeight);
 
     // compile shaders
     GLuint vertexShader = ShaderCreate(GL_VERTEX_SHADER, vertexShaderSource);
@@ -80,52 +91,8 @@ int main(void) {
     GLint projMatrixId = glGetUniformLocation(shaderProgram, "projMatrix");
     GLint viewMatrixId = glGetUniformLocation(shaderProgram, "viewMatrix");
 
-    // the world
-    Vec3 cubeVertices[] = {
-        { .x = +0.5f, .y = +0.5f, .z = -10.0f }, // 0 (front top right)
-        { .x = +0.5f, .y = -0.5f, .z = -10.0f }, // 1 (front bottom right)
-        { .x = -0.5f, .y = -0.5f, .z = -10.0f }, // 2 (front bottom left)
-        { .x = -0.5f, .y = +0.5f, .z = -10.0f }, // 3 (front top left)
-        { .x = +0.5f, .y = +0.5f, .z = -11.0f }, // 4 (back top right)
-        { .x = +0.5f, .y = -0.5f, .z = -11.0f }, // 5 (back bottom right)
-        { .x = -0.5f, .y = -0.5f, .z = -11.0f }, // 6 (back bottom left)
-        { .x = -0.5f, .y = +0.5f, .z = -11.0f }  // 7 (back top left)
-    };
-
-    Rgb cubeColors[] = {
-        { .r = 1.0f, .g = 1.0f, .b = 1.0f },
-        { .r = 1.0f, .g = 1.0f, .b = 1.0f },
-        { .r = 1.0f, .g = 1.0f, .b = 1.0f },
-        { .r = 1.0f, .g = 1.0f, .b = 1.0f },
-        { .r = 0.0f, .g = 0.0f, .b = 0.0f },
-        { .r = 0.0f, .g = 0.0f, .b = 0.0f },
-        { .r = 0.0f, .g = 0.0f, .b = 0.0f },
-        { .r = 0.0f, .g = 0.0f, .b = 0.0f },
-    };
-
-    GLuint cubeIndices[] = {
-        // front face
-        0, 1, 3,
-        1, 2, 3,
-        // top face
-        3, 4, 0,
-        3, 7, 4,
-        // back face
-        4, 5, 7,
-        7, 5, 6,
-        // bottom face
-        1, 5, 6,
-        1, 6, 2,
-        // left face
-        3, 2, 7,
-        2, 6, 7,
-        // right face
-        0, 4, 1,
-        1, 4, 5
-    };
-
     // define camera properties
-    Vec3 eye = { .x = 0.0f, .y = 0.0f, .z = 0.0f };
+    Vec3 eye = { .x = 0.0f, .y = 0.0f, .z = 10.0f };
     Vec3 gaze = { .x = 0.0f, .y = 0.0f, .z = -1.0f };
     Vec3 up = { .x = 0.0f, .y = 1.0f, .z = 0.0f };
 
@@ -164,23 +131,41 @@ int main(void) {
         Transform camera;
         TransformInitCamera(&camera, eye, gaze, up);
 
-        // setup vertices for opengl
-        GLfloat vertices[(ARRAY_LEN(cubeVertices) + ARRAY_LEN(cubeColors)) * 3];
+        // TODO: enumerate meshes
+        ufbx_mesh* mesh = scene->meshes.data[0];
 
-        for(int i = 0; i < ARRAY_LEN(cubeVertices); i++) {
+        // prepare vertex buffer for opengl
+        ufbx_vec3_list vertexPositions = mesh->vertices;
+
+        GLfloat vertices[(vertexPositions.count * 2) * 3];
+
+        for(int i = 0; i < vertexPositions.count; i++) {
             int j = i * 6;
 
-            Vec3 vertexPos = cubeVertices[i];
+            // apply position from mesh
+            ufbx_vec3 vertexPos = vertexPositions.data[i];
+
             vertices[j + 0] = vertexPos.x;
             vertices[j + 1] = vertexPos.y;
             vertices[j + 2] = vertexPos.z;
-
-            // apply vertex color
-            Rgb vertexColor = cubeColors[i];
-            vertices[j + 3] = vertexColor.r;
-            vertices[j + 4] = vertexColor.g;
-            vertices[j + 5] = vertexColor.b;
         }
+
+        ufbx_vertex_vec4 vertexColor = mesh->color_sets.data[0].vertex_color;
+
+        for (int i = 0; i < vertexColor.indices.count; i++) {
+            int colorIndex = vertexColor.indices.data[i];
+            ufbx_vec4 color = vertexColor.values.data[colorIndex];
+            int vertexPosIndex = mesh->vertex_indices.data[i];
+
+            // apply vertex color for mesh
+            int j = vertexPosIndex * 6;
+            vertices[j + 3] = color.x;
+            vertices[j + 4] = color.y;
+            vertices[j + 5] = color.z;
+        }
+
+        // prepare index buffer for opengl
+        ufbx_uint32_list indices = mesh->vertex_indices;
 
         // create buffers
         GLuint vao;
@@ -209,7 +194,7 @@ int main(void) {
 
         // bind element data
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cubeIndices), cubeIndices, GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * indices.count, indices.data, GL_STATIC_DRAW);
 
         glBindVertexArray(0);
 
@@ -228,7 +213,7 @@ int main(void) {
         glUniformMatrix4fv(viewMatrixId, 1, GL_TRUE, viewMatrix);
 
         glBindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, ARRAY_LEN(cubeIndices), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, indices.count, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
         // swap front & back buffers
@@ -237,6 +222,9 @@ int main(void) {
         // poll for and process events
         glfwPollEvents();
     }
+
+    // TODO: do we need some kind of quit function?
+    ufbx_free_scene(scene);
 
     glfwTerminate();
 
@@ -279,7 +267,6 @@ void ShaderProgramRelease(GLuint programId) {
 
 // -- events --
 void onFrameBufferSizeChanged(GLFWwindow* window, int width, int height) {
-    printf("framebuffer resized: %d %d\n", width, height);
     glViewport(0, 0, width, height);
     windowAspectRatio = (float)width / height;
 }

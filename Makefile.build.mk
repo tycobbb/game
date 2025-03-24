@@ -26,11 +26,11 @@ tb-clang = clang \
 # -- targets --
 # -- t/build
 $(db-bin): $(db-dst)
-	$(tb-clang) -o $(db-bin) $(wildcard $(db-src)/*.c)
+	$(tb-clang) -o $(db-bin) $(wildcard $(db-src)/*.c) $(wildcard $(db-lib)/*.c)
 
 -- todo: remove duplication w/ $(db-bin)
 $(db-dbg): $(db-dst)
-	$(tb-clang) -g -O0 -o $(db-dbg) $(wildcard $(db-src)/*.c)
+	$(tb-clang) -g -O0 -o $(db-dbg) $(wildcard $(db-src)/*.c) $(wildcard $(db-lib)/*.c)
 
 $(db-dst):
 	mkdir -p $(db-dst)
@@ -56,10 +56,14 @@ $(l-ufbx):
 		-o $(db-tmp)/ufbx-$(l-ufbx-v).zip
 
 	unzip $(db-tmp)/ufbx-$(l-ufbx-v).zip \
-		-d $(db-tmp)
+		-d $(db-tmp) \
+		ufbx-$(l-ufbx-v)/ufbx.h ufbx-$(l-ufbx-v)/ufbx.c
 
 	rm $(db-tmp)/ufbx-$(l-ufbx-v).zip
 	mv $(db-tmp)/* $(l-ufbx)
+
+	mv $(l-ufbx)/ufbx.h $(db-inc)
+	mv $(l-ufbx)/ufbx.c $(db-lib)
 
 # -- t/dirs
 d/init: $(db-lib) $(db-inc) $(db-dep) $(db-tmp)
