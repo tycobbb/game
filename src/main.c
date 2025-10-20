@@ -1,3 +1,5 @@
+#include <assert.h>
+#include <stddef.h>
 #define GL_SILENCE_DEPRECATION
 #define GLFW_INCLUDE_GLCOREARB
 
@@ -5,6 +7,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <ufbx.h>
+#include <OpenGL/OpenGL.h>
 #include "arrayutil.h"
 #include "input.h"
 #include "mathutil.h"
@@ -85,47 +88,82 @@ int main(void) {
     ufbx_load_opts sceneLoadOpts = {0};
     ufbx_error sceneLoadError;
 
-    ufbx_scene* scene = ufbx_load_file("assets/cube.fbx", &sceneLoadOpts, &sceneLoadError);
+    ufbx_scene* scene = ufbx_load_file("assets/scene.fbx", &sceneLoadOpts, &sceneLoadError);
     if (scene == NULL) {
         printf("ERROR::SCENE::LOAD_FAILED\n%s\n", sceneLoadError.description.data);
         return 3;
     }
 
-    // TODO: enumerate meshes
-    ufbx_mesh* mesh = scene->meshes.data[0];
+    ufbx_mesh_list meshes = scene->meshes;
 
-    // prepare vertex buffer for opengl
-    ufbx_vec3_list vertexPositions = mesh->vertices;
-
-    GLfloat vertices[(vertexPositions.count * 2) * 3];
-
-    for(int i = 0; i < vertexPositions.count; i++) {
-        int j = i * 6;
-
-        // apply position from mesh
-        ufbx_vec3 vertexPos = vertexPositions.data[i];
-
-        vertices[j + 0] = vertexPos.x;
-        vertices[j + 1] = vertexPos.y;
-        vertices[j + 2] = vertexPos.z;
+    size_t numVertices = 0;
+    size_t numIndices = 0;
+    for(int meshIndex = 0; meshIndex < meshes.count; meshIndex++) {
+        ufbx_mesh* mesh = scene->meshes.data[meshIndex];
+        numVertices += mesh->num_vertices;
+        numIndices += mesh->num_indices;
     }
 
-    ufbx_vertex_vec4 vertexColor = mesh->color_sets.data[0].vertex_color;
+    // each vertex is comprised of one position (xyz) and one color (rgb)
+    const size_t stride = 6;
 
-    for (int i = 0; i < vertexColor.indices.count; i++) {
-        int colorIndex = vertexColor.indices.data[i];
-        ufbx_vec4 color = vertexColor.values.data[colorIndex];
-        int vertexPosIndex = mesh->vertex_indices.data[i];
+    GLfloat vertices[numVertices * stride];
+    GLuint indices[numIndices];
 
-        // apply vertex color for mesh
-        int j = vertexPosIndex * 6;
-        vertices[j + 3] = color.x;
-        vertices[j + 4] = color.y;
-        vertices[j + 5] = color.z;
+    int currVerticesIndex = 0;
+    int currIndicesIndex = 0;
+
+    for (int meshIndex = 0; meshIndex < meshes.count; meshIndex++) {
+        ufbx_mesh* mesh = scene->meshes.data[meshIndex];
+
+        // prepare model matrix for opengl
+        ufbx_node_list instances = mesh->instances;
+        assert(instances.count == 1);
+
+        ufbx_node* instance = instances.data[0];
+        ufbx_matrix geometryToWorld = instance->geometry_to_world;
+
+        Transform modelMatrix;
+
+        // prepare vertex buffer for opengl
+        ufbx_vec3_list vertexPositions = mesh->vertices;
+        assert(vertexPositions.count == mesh->num_vertices);
+
+        for (int i = 0; i < vertexPositions.count; i++) {
+            int j = (i + currVerticesIndex) * stride;
+
+            // apply position from mesh
+            ufbx_vec3 vertexPos = vertexPositions.data[i];
+
+            vertices[j + 0] = vertexPos.x;
+            vertices[j + 1] = vertexPos.y;
+            vertices[j + 2] = vertexPos.z;
+        }
+
+        ufbx_vertex_vec4 vertexColor = mesh->color_sets.data[0].vertex_color;
+        for (int i = 0; i < vertexColor.indices.count; i++) {
+            int colorIndex = vertexColor.indices.data[i];
+            ufbx_vec4 color = vertexColor.values.data[colorIndex];
+            int vertexPosIndex = mesh->vertex_indices.data[i];
+
+            // apply vertex color for mesh
+            int j = (vertexPosIndex + currVerticesIndex) * stride;
+            vertices[j + 3] = color.x;
+            vertices[j + 4] = color.y;
+            vertices[j + 5] = color.z;
+        }
+
+        // prepare index buffer for opengl
+        ufbx_uint32_list vertexIndices = mesh->vertex_indices;
+        assert(vertexIndices.count == mesh->num_indices);
+
+        for(int i = 0; i < vertexIndices.count; i++) {
+            indices[i + currIndicesIndex] = vertexIndices.data[i] + currVerticesIndex;
+        }
+
+        currVerticesIndex += mesh->num_vertices;
+        currIndicesIndex += mesh->num_indices;
     }
-
-    // prepare index buffer for opengl
-    ufbx_uint32_list indices = mesh->vertex_indices;
 
     // create buffers
     GLuint vao;
@@ -145,16 +183,16 @@ int main(void) {
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride * sizeof(GLfloat), (GLvoid*)0);
     glEnableVertexAttribArray(0);
 
     // color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
 
     // bind element data
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * indices.count, indices.data, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     glBindVertexArray(0);
 
@@ -213,7 +251,9 @@ int main(void) {
         glUniformMatrix4fv(viewMatrixId, 1, GL_TRUE, viewMatrix);
 
         glBindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, indices.count, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_INT, 0);
+        //glDrawElementsBaseVertex(GL_TRIANGLES, indices.count, GL_UNSIGNED_INT, 0, 0);
+
         glBindVertexArray(0);
 
         // swap front & back buffers
