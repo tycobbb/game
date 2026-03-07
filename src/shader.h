@@ -3,12 +3,14 @@
 
 #include <OpenGL/gl3.h>
 
-GLuint ShaderCreate(
+// -- interface --
+
+GLuint Shader_Create(
   GLuint shaderType,
   const char* shaderSource
 );
 
-void ShaderRelease(
+void Shader_Release(
   GLuint shaderId
 );
 

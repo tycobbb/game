@@ -5,11 +5,15 @@
 #include <GLFW/glfw3.h>
 #include "vec2.h"
 
+// -- types --
+
 typedef struct {
   bool quit;
   Vec2 cameraTranslate;
 } Input;
 
-void InputRead(Input* this, GLFWwindow* window);
+// -- interface --
+
+void Input_Read(Input* this, GLFWwindow* window);
 
 #endif

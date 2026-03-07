@@ -3,7 +3,9 @@
 #include <stdio.h>
 #include <errno.h>
 
-bool FileLoad(File this, char* filePath) {
+// -- implementation --
+
+bool File_Load(File this, char* filePath) {
     FILE* f = fopen(filePath, "r");
     if(f == NULL) {
         printf("ERROR::FILE::LOAD_FAILED\n%s\n%d\n", filePath, errno);

@@ -5,12 +5,16 @@
 #include "vecutil.h"
 #include <math.h>
 
-void TransformInitIdentity(Transform* out);
-void TransformGetRow(Transform a, int i, VecH* out);
-void TransformSetRow(Transform* this, int i, VecH row);
-void TransformGetColumn(Transform a, int j, VecH* out);
+// -- interface --
 
-void TransformInit(Transform* this) {
+void Transform_InitIdentity(Transform* out);
+void Transform_GetRow(Transform a, int i, VecH* out);
+void Transform_SetRow(Transform* this, int i, VecH row);
+void Transform_GetColumn(Transform a, int j, VecH* out);
+
+// -- implementation --
+
+void Transform_Init(Transform* this) {
     for (int i = 0; i < ARRAY_LEN(this->matrix); i++) {
         for (int j = 0; j < ARRAY_LEN(this->matrix[i]); j++) {
             this->matrix[i][j] = 0;
@@ -18,56 +22,56 @@ void TransformInit(Transform* this) {
     }
 }
 
-void TransformInitCamera(Transform* this, Vec3 eye, Vec3 gaze, Vec3 up) {
-    TransformInit(this);
+void Transform_InitCamera(Transform* this, Vec3 eye, Vec3 gaze, Vec3 up) {
+    Transform_Init(this);
 
     Vec3 w;
-    Vec3Normalize(gaze, &w);
-    Vec3Scale(w, -1.0f, &w);
+    Vec3_Normalize(gaze, &w);
+    Vec3_Scale(w, -1.0f, &w);
 
     Vec3 u;
-    Vec3Cross(up, w, &u);
-    Vec3Normalize(u, &u);
+    Vec3_Cross(up, w, &u);
+    Vec3_Normalize(u, &u);
 
     Vec3 v;
-    Vec3Cross(w, u, &v);
+    Vec3_Cross(w, u, &v);
 
     VecH temp;
 
     Transform basis;
-    TransformInit(&basis);
+    Transform_Init(&basis);
 
-    VecHFromVec3(u, 0, &temp);
-    TransformSetRow(&basis, 0, temp);
+    VecH_FromVec3(u, 0, &temp);
+    Transform_SetRow(&basis, 0, temp);
 
-    VecHFromVec3(v, 0, &temp);
-    TransformSetRow(&basis, 1, temp);
+    VecH_FromVec3(v, 0, &temp);
+    Transform_SetRow(&basis, 1, temp);
 
-    VecHFromVec3(w, 0, &temp);
-    TransformSetRow(&basis, 2, temp);
+    VecH_FromVec3(w, 0, &temp);
+    Transform_SetRow(&basis, 2, temp);
 
     basis.matrix[3][3] = 1;
 
     Transform origin;
-    TransformInitIdentity(&origin);
+    Transform_InitIdentity(&origin);
 
     origin.matrix[0][3] = -eye.x;
     origin.matrix[1][3] = -eye.y;
     origin.matrix[2][3] = -eye.z;
 
-    TransformMultiply(basis, origin, this);
+    Transform_Multiply(basis, origin, this);
 }
 
-void TransformInitIdentity(Transform* this) {
-    TransformInit(this);
+void Transform_InitIdentity(Transform* this) {
+    Transform_Init(this);
 
     for (int i = 0; i < ARRAY_LEN(this->matrix); i++) {
         this->matrix[i][i] = 1;
     }
 }
 
-void TransformInitOrthographicProjection(Transform* this, float l, float r, float b, float t, float n, float f) {
-    TransformInit(this);
+void Transform_InitOrthographicProjection(Transform* this, float l, float r, float b, float t, float n, float f) {
+    Transform_Init(this);
 
     this->matrix[0][0] = 2.0f / (r - l);
     this->matrix[0][3] = -(r + l) / (r - l);
@@ -78,8 +82,8 @@ void TransformInitOrthographicProjection(Transform* this, float l, float r, floa
     this->matrix[3][3] = 1.0f;
 }
 
-void TransformInitPerspectiveProjection(Transform* this, float fovY, float aspect, float n, float f) {
-    TransformInit(this);
+void Transform_InitPerspectiveProjection(Transform* this, float fovY, float aspect, float n, float f) {
+    Transform_Init(this);
 
     float fovY_2 = fovY / 2;
     float scaleY = cos(fovY_2) / sin(fovY_2);
@@ -91,55 +95,55 @@ void TransformInitPerspectiveProjection(Transform* this, float fovY, float aspec
     this->matrix[3][2] = -1.0f;
 }
 
-void TransformApply(Transform transform, VecH vec, VecH* out) {
+void Transform_Apply(Transform transform, VecH vec, VecH* out) {
     VecHArray result;
 
     for (int i = 0; i < ARRAY_LEN(transform.matrix); i++) {
         VecH row;
-        TransformGetRow(transform, i, &row);
-        result[i] = VecHDot(row, vec);
+        Transform_GetRow(transform, i, &row);
+        result[i] = VecH_Dot(row, vec);
     }
 
-    VecHFromArray(result, out);
+    VecH_FromArray(result, out);
 }
 
-void TransformSet(Transform* this, int rowIndex, int colIndex, float value) {
+void Transform_Set(Transform* this, int rowIndex, int colIndex, float value) {
     this->matrix[rowIndex][colIndex] = value;
 }
 
-void TransformMultiply(Transform a, Transform b, Transform *out) {
+void Transform_Multiply(Transform a, Transform b, Transform *out) {
     for (int i = 0; i < ARRAY_LEN(a.matrix); i++) {
         VecH row;
-        TransformGetRow(a, i, &row);
+        Transform_GetRow(a, i, &row);
         for (int j = 0; j < ARRAY_LEN(a.matrix[0]); j++) {
             VecH column;
-            TransformGetColumn(b, j, &column);
-            out->matrix[i][j] = VecHDot(row, column);
+            Transform_GetColumn(b, j, &column);
+            out->matrix[i][j] = VecH_Dot(row, column);
         }
     }
 }
 
-void TransformGetRow(Transform a, int i, VecH* out) {
-    VecHFromArray(a.matrix[i], out);
+void Transform_GetRow(Transform a, int i, VecH* out) {
+    VecH_FromArray(a.matrix[i], out);
 }
 
-void TransformSetRow(Transform* this, int i, VecH row) {
+void Transform_SetRow(Transform* this, int i, VecH row) {
     VecHArray values;
-    VecHToArray(row, values);
+    VecH_ToArray(row, values);
 
     for (int j = 0; j < ARRAY_LEN(values); j++) {
         this->matrix[i][j] = values[j];
     }
 }
 
-void TransformGetColumn(Transform a, int j, VecH* out) {
+void Transform_GetColumn(Transform a, int j, VecH* out) {
     out->x = a.matrix[0][j];
     out->y = a.matrix[1][j];
     out->z = a.matrix[2][j];
     out->w = a.matrix[3][j];
 }
 
-void TransformToArray(Transform this, TransformArray out) {
+void Transform_ToArray(Transform this, TransformArray out) {
     for (int row = 0; row < ARRAY_LEN(this.matrix); row++) {
         for (int column = 0; column < ARRAY_LEN(this.matrix[0]); column++) {
             out[row * 4 + column] = this.matrix[row][column];

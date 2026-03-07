@@ -1,6 +1,8 @@
 #ifndef VECH_H
 #define VECH_H
 
+// -- types --
+
 typedef struct {
   float x;
   float y;
@@ -10,10 +12,12 @@ typedef struct {
 
 typedef float VecHArray[4];
 
-float VecHDot(VecH a, VecH b);
+// -- interface --
 
-void VecHFromArray(VecHArray in, VecH* out);
+float VecH_Dot(VecH a, VecH b);
 
-void VecHToArray(VecH vec, VecHArray out);
+void VecH_FromArray(VecHArray in, VecH* out);
+
+void VecH_ToArray(VecH vec, VecHArray out);
 
 #endif

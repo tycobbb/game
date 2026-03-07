@@ -1,7 +1,9 @@
 #include "input.h"
 #include "GLFW/glfw3.h"
 
-void InputRead(Input* this, GLFWwindow* window) {
+// -- implementation --
+
+void Input_Read(Input* this, GLFWwindow* window) {
     this->quit = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
 
     Vec2 cameraTranslate = {

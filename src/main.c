@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stddef.h>
+
 #define GL_SILENCE_DEPRECATION
 #define GLFW_INCLUDE_GLCOREARB
 
@@ -8,38 +9,39 @@
 #include <stdio.h>
 #include <ufbx.h>
 #include <OpenGL/OpenGL.h>
-#include "arrayutil.h"
 #include "input.h"
 #include "mathutil.h"
 #include "file.h"
-#include "rgb.h"
 #include "shader.h"
 #include "transform.h"
 #include "vec2.h"
 #include "vec3.h"
-#include "vech.h"
-#include "vecutil.h"
+
+// -- interface --
 
 bool initialize();
 void onFrameBufferSizeChanged(GLFWwindow* window, int width, int height);
 GLuint ShaderProgramCreate(GLuint vertexShader, GLuint fragmentShader);
 
 // -- constants --
+
 const float CAMERA_SPEED = 0.01f;
 
 // -- globals --
+
 float windowAspectRatio = -1.0f;
 
 // -- main --
+
 int main(void) {
     // load shaders
     File vertexShaderSource;
-    if (!FileLoad(vertexShaderSource, "src/shaders/vert.glsl")) {
+    if (!File_Load(vertexShaderSource, "src/shaders/vert.glsl")) {
         return 1;
     }
 
     File fragmentShaderSource;
-    if (!FileLoad(fragmentShaderSource, "src/shaders/frag.glsl")) {
+    if (!File_Load(fragmentShaderSource, "src/shaders/frag.glsl")) {
         return 2;
     }
 
@@ -73,13 +75,13 @@ int main(void) {
     onFrameBufferSizeChanged(window, fbWidth, fbHeight);
 
     // compile shaders
-    GLuint vertexShader = ShaderCreate(GL_VERTEX_SHADER, vertexShaderSource);
-    GLuint fragmentShader = ShaderCreate(GL_FRAGMENT_SHADER, fragmentShaderSource);
+    GLuint vertexShader = Shader_Create(GL_VERTEX_SHADER, vertexShaderSource);
+    GLuint fragmentShader = Shader_Create(GL_FRAGMENT_SHADER, fragmentShaderSource);
 
     GLuint shaderProgram = ShaderProgramCreate(vertexShader, fragmentShader);
 
-    ShaderRelease(vertexShader);
-    ShaderRelease(fragmentShader);
+    Shader_Release(vertexShader);
+    Shader_Release(fragmentShader);
 
     GLint projMatrixId = glGetUniformLocation(shaderProgram, "projMatrix");
     GLint viewMatrixId = glGetUniformLocation(shaderProgram, "viewMatrix");
@@ -208,7 +210,7 @@ int main(void) {
     // while the window is open
     Input input;
     while (!glfwWindowShouldClose(window)) {
-        InputRead(&input, window);
+        Input_Read(&input, window);
 
         // handle input
         if (input.quit) {
@@ -217,14 +219,14 @@ int main(void) {
 
         // move camera
         Vec2 cameraTranslate;
-        Vec2Scale(input.cameraTranslate, CAMERA_SPEED, &cameraTranslate);
+        Vec2_Scale(input.cameraTranslate, CAMERA_SPEED, &cameraTranslate);
 
         eye.x += cameraTranslate.x;
         eye.y += cameraTranslate.y;
 
         // create perspective transform
         Transform perspectiveProjection;
-        TransformInitPerspectiveProjection(
+        Transform_InitPerspectiveProjection(
             &perspectiveProjection,
             60.0f * DEG2RAD,
             (float)windowAspectRatio,
@@ -234,7 +236,7 @@ int main(void) {
 
         // create camera transform
         Transform camera;
-        TransformInitCamera(&camera, eye, gaze, up);
+        Transform_InitCamera(&camera, eye, gaze, up);
 
         // render
         glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
@@ -243,11 +245,11 @@ int main(void) {
         glUseProgram(shaderProgram);
 
         TransformArray projMatrix;
-        TransformToArray(perspectiveProjection , projMatrix);
+        Transform_ToArray(perspectiveProjection , projMatrix);
         glUniformMatrix4fv(projMatrixId, 1, GL_TRUE, projMatrix);
 
         TransformArray viewMatrix;
-        TransformToArray(camera, viewMatrix);
+        Transform_ToArray(camera, viewMatrix);
         glUniformMatrix4fv(viewMatrixId, 1, GL_TRUE, viewMatrix);
 
         glBindVertexArray(vao);
@@ -306,6 +308,7 @@ void ShaderProgramRelease(GLuint programId) {
 }
 
 // -- events --
+
 void onFrameBufferSizeChanged(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
     windowAspectRatio = (float)width / height;

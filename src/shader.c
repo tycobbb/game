@@ -3,7 +3,9 @@
 #include <stdio.h>
 #include "shader.h"
 
-GLuint ShaderCreate(GLuint shaderType, const char* shaderSource) {
+// -- implementation --
+
+GLuint Shader_Create(GLuint shaderType, const char* shaderSource) {
     GLuint shaderId = glCreateShader(shaderType);
     glShaderSource(shaderId, 1, &shaderSource, NULL);
     glCompileShader(shaderId);
@@ -20,6 +22,6 @@ GLuint ShaderCreate(GLuint shaderType, const char* shaderSource) {
     return shaderId;
 }
 
-void ShaderRelease(GLuint shaderId) {
+void Shader_Release(GLuint shaderId) {
     glDeleteShader(shaderId);
 }
