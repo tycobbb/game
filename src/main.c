@@ -5,14 +5,15 @@
 #define GLFW_INCLUDE_GLCOREARB
 
 #include <GLFW/glfw3.h>
+#include <OpenGL/OpenGL.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <ufbx.h>
-#include <OpenGL/OpenGL.h>
 #include "input.h"
-#include "mathutil.h"
 #include "file.h"
+#include "mathutil.h"
 #include "shader.h"
+#include "shaderprogram.h"
 #include "transform.h"
 #include "vec2.h"
 #include "vec3.h"
@@ -21,7 +22,6 @@
 
 bool initialize();
 void onFrameBufferSizeChanged(GLFWwindow* window, int width, int height);
-GLuint ShaderProgramCreate(GLuint vertexShader, GLuint fragmentShader);
 
 // -- constants --
 
@@ -78,7 +78,7 @@ int main(void) {
     GLuint vertexShader = Shader_Create(GL_VERTEX_SHADER, vertexShaderSource);
     GLuint fragmentShader = Shader_Create(GL_FRAGMENT_SHADER, fragmentShaderSource);
 
-    GLuint shaderProgram = ShaderProgramCreate(vertexShader, fragmentShader);
+    GLuint shaderProgram = ShaderProgram_Create(vertexShader, fragmentShader);
 
     Shader_Release(vertexShader);
     Shader_Release(fragmentShader);
@@ -266,7 +266,10 @@ int main(void) {
     }
 
     // TODO: do we need some kind of quit function?
+
+    // free resources
     ufbx_free_scene(scene);
+    ShaderProgram_Release(shaderProgram);
 
     glfwTerminate();
 
@@ -284,27 +287,6 @@ bool initialize() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
     return true;
-}
-
-GLuint ShaderProgramCreate(GLuint vertexShader, GLuint fragmentShader) {
-    GLuint programId = glCreateProgram();
-
-    glAttachShader(programId, vertexShader);
-    glAttachShader(programId, fragmentShader);
-    glLinkProgram(programId);
-
-    GLint success;
-    glGetProgramiv(programId, GL_LINK_STATUS, &success);
-    if(success == GL_FALSE) {
-        char infoLog[512];
-        glGetProgramInfoLog(programId, 512, NULL, infoLog);
-        printf("ERROR::PROGRAM::LINK_FAILED\n%s\n", infoLog);
-    }
-
-    return programId;
-}
-
-void ShaderProgramRelease(GLuint programId) {
 }
 
 // -- events --
