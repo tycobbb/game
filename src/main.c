@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <ufbx.h>
+#include "arrayutil.h"
 #include "input.h"
 #include "file.h"
 #include "mathutil.h"
@@ -74,10 +75,10 @@ int main(void) {
     glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
     onFrameBufferSizeChanged(window, fbWidth, fbHeight);
 
+    // TODO: this could all be encapsulated in ShaderProgram_Create
     // compile shaders
     GLuint vertexShader = Shader_Create(GL_VERTEX_SHADER, vertexShaderSource);
     GLuint fragmentShader = Shader_Create(GL_FRAGMENT_SHADER, fragmentShaderSource);
-
     GLuint shaderProgram = ShaderProgram_Create(vertexShader, fragmentShader);
 
     Shader_Release(vertexShader);
@@ -115,6 +116,9 @@ int main(void) {
     int currVerticesIndex = 0;
     int currIndicesIndex = 0;
 
+    // TODO: add logger w/ levels
+    printf("scene\n---\nmeshes: %zu\nvertices: %zu\nindices: %zu\n", meshes.count, numVertices, numIndices);
+
     for (int meshIndex = 0; meshIndex < meshes.count; meshIndex++) {
         ufbx_mesh* mesh = scene->meshes.data[meshIndex];
 
@@ -123,9 +127,10 @@ int main(void) {
         assert(instances.count == 1);
 
         ufbx_node* instance = instances.data[0];
-        ufbx_matrix geometryToWorld = instance->geometry_to_world;
+        ufbx_matrix objectToWorld = instance->node_to_parent;
 
         Transform modelMatrix;
+        Transform_InitWithColumns(&modelMatrix, objectToWorld.v);
 
         // prepare vertex buffer for opengl
         ufbx_vec3_list vertexPositions = mesh->vertices;
@@ -140,6 +145,21 @@ int main(void) {
             vertices[j + 0] = vertexPos.x;
             vertices[j + 1] = vertexPos.y;
             vertices[j + 2] = vertexPos.z;
+
+            // AAA: figure out how to pass the model matrix correctly into the shader
+            VecH v0 = {
+                .x = vertexPos.x,
+                .y = vertexPos.y,
+                .z = vertexPos.z,
+                .w = 1,
+            };
+
+            VecH v1;
+            Transform_Apply(modelMatrix, v0, &v1);
+
+            vertices[j + 0] = v1.x;
+            vertices[j + 1] = v1.y;
+            vertices[j + 2] = v1.z;
         }
 
         ufbx_vertex_vec4 vertexColor = mesh->color_sets.data[0].vertex_color;
@@ -238,24 +258,23 @@ int main(void) {
         Transform camera;
         Transform_InitCamera(&camera, eye, gaze, up);
 
-        // render
+        // clear the screen
         glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // select the shaders
         glUseProgram(shaderProgram);
 
-        TransformArray projMatrix;
-        Transform_ToArray(perspectiveProjection , projMatrix);
-        glUniformMatrix4fv(projMatrixId, 1, GL_TRUE, projMatrix);
+        // bind uniforms
+        glUniformMatrix4fv(projMatrixId, 1, GL_TRUE, perspectiveProjection.v);
+        glUniformMatrix4fv(viewMatrixId, 1, GL_TRUE, camera.v);
 
-        TransformArray viewMatrix;
-        Transform_ToArray(camera, viewMatrix);
-        glUniformMatrix4fv(viewMatrixId, 1, GL_TRUE, viewMatrix);
-
+        // bind vertex data
         glBindVertexArray(vao);
+
+        // render
         glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_INT, 0);
         //glDrawElementsBaseVertex(GL_TRIANGLES, indices.count, GL_UNSIGNED_INT, 0, 0);
-
         glBindVertexArray(0);
 
         // swap front & back buffers

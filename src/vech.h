@@ -3,21 +3,21 @@
 
 // -- types --
 
-typedef struct {
-  float x;
-  float y;
-  float z;
-  float w;
-} VecH;
+typedef struct VecH {
+    union {
+        struct {
+            float x;
+            float y;
+            float z;
+            float w;
+        };
 
-typedef float VecHArray[4];
+        float v[4];
+    };
+} VecH;
 
 // -- interface --
 
 float VecH_Dot(VecH a, VecH b);
-
-void VecH_FromArray(VecHArray in, VecH* out);
-
-void VecH_ToArray(VecH vec, VecHArray out);
 
 #endif

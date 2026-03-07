@@ -6,11 +6,19 @@
 
 // -- types --
 
-typedef struct {
-  float matrix[4][4];
-} Transform;
+typedef struct Transform {
+    union {
+        struct {
+            float m00, m10, m20, m30;
+            float m01, m11, m21, m31;
+            float m02, m12, m22, m32;
+            float m03, m13, m23, m33;
+        };
 
-typedef float TransformArray[16];
+        float matrix[4][4];
+        float v[16];
+    };
+} Transform;
 
 // -- interface --
 
@@ -22,12 +30,14 @@ void Transform_InitPerspectiveProjection(Transform* this, float fovY, float aspe
 
 void Transform_InitCamera(Transform* transform, Vec3 eye, Vec3 gaze, Vec3 up);
 
+void Transform_InitModel(Transform* transform, Vec3 x, Vec3 y, Vec3 z, Vec3 t);
+
+void Transform_InitWithColumns(Transform *this, double cols[12]);
+
 void Transform_Apply(Transform transform, VecH vec, VecH* out);
 
 void Transform_Set(Transform* transform, int rowIndex, int colIndex, float value);
 
 void Transform_Multiply(Transform a, Transform b, Transform* out);
-
-void Transform_ToArray(Transform this, TransformArray out);
 
 #endif
