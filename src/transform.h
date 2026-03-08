@@ -4,6 +4,10 @@
 #include "vech.h"
 #include "vec3.h"
 
+// -- constants --
+
+#define TRANSFORM_LEN 16
+
 // -- types --
 
 typedef struct Transform {
@@ -16,7 +20,7 @@ typedef struct Transform {
         };
 
         float matrix[4][4];
-        float v[16];
+        float v[TRANSFORM_LEN];
     };
 } Transform;
 

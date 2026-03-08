@@ -1,15 +1,14 @@
-#include <assert.h>
-#include <stddef.h>
 
 #define GL_SILENCE_DEPRECATION
 #define GLFW_INCLUDE_GLCOREARB
 
+#include <assert.h>
 #include <GLFW/glfw3.h>
 #include <OpenGL/OpenGL.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <ufbx.h>
-#include "arrayutil.h"
 #include "input.h"
 #include "file.h"
 #include "mathutil.h"
@@ -31,6 +30,14 @@ const float CAMERA_SPEED = 0.01f;
 // -- globals --
 
 float windowAspectRatio = -1.0f;
+
+// -- types --
+
+typedef struct Vertex {
+    GLuint meshIndex;
+    GLfloat position[3];
+    GLfloat color[3];
+} Vertex;
 
 // -- main --
 
@@ -86,6 +93,7 @@ int main(void) {
 
     GLint projMatrixId = glGetUniformLocation(shaderProgram, "projMatrix");
     GLint viewMatrixId = glGetUniformLocation(shaderProgram, "viewMatrix");
+    GLint modelMatricesId = glGetUniformLocation(shaderProgram, "modelMatrices");
 
     // load scene
     ufbx_load_opts sceneLoadOpts = {0};
@@ -107,17 +115,16 @@ int main(void) {
         numIndices += mesh->num_indices;
     }
 
-    // each vertex is comprised of one position (xyz) and one color (rgb)
-    const size_t stride = 6;
-
-    GLfloat vertices[numVertices * stride];
+    // TODO: access variable for matrix length instead of constant 16
+    Vertex vertices[numVertices];
     GLuint indices[numIndices];
+    GLfloat modelMatrices[meshes.count * TRANSFORM_LEN];
 
     int currVerticesIndex = 0;
     int currIndicesIndex = 0;
 
     // TODO: add logger w/ levels
-    printf("scene\n---\nmeshes: %zu\nvertices: %zu\nindices: %zu\n", meshes.count, numVertices, numIndices);
+    printf("scene\n---\nmeshes:   %zu\nvertices: %zu\nindices:  %zu\n", meshes.count, numVertices, numIndices);
 
     for (int meshIndex = 0; meshIndex < meshes.count; meshIndex++) {
         ufbx_mesh* mesh = scene->meshes.data[meshIndex];
@@ -131,48 +138,47 @@ int main(void) {
 
         Transform modelMatrix;
         Transform_InitWithColumns(&modelMatrix, objectToWorld.v);
+        for(int modelMatrixIndex = 0; modelMatrixIndex < 16; modelMatrixIndex++) {
+            modelMatrices[meshIndex * 16 + modelMatrixIndex] = modelMatrix.v[modelMatrixIndex];
+        }
 
         // prepare vertex buffer for opengl
         ufbx_vec3_list vertexPositions = mesh->vertices;
         assert(vertexPositions.count == mesh->num_vertices);
 
-        for (int i = 0; i < vertexPositions.count; i++) {
-            int j = (i + currVerticesIndex) * stride;
+        // add mesh index & vertex positions to vertex data
+        for (int i = 0; i < mesh->num_vertices; i++) {
+            int j = (i + currVerticesIndex);
+            Vertex* vertex = &vertices[j];
+
+            // add the mesh index
+            vertex->meshIndex = meshIndex;
 
             // apply position from mesh
             ufbx_vec3 vertexPos = vertexPositions.data[i];
 
-            vertices[j + 0] = vertexPos.x;
-            vertices[j + 1] = vertexPos.y;
-            vertices[j + 2] = vertexPos.z;
-
-            // AAA: figure out how to pass the model matrix correctly into the shader
-            VecH v0 = {
-                .x = vertexPos.x,
-                .y = vertexPos.y,
-                .z = vertexPos.z,
-                .w = 1,
-            };
-
-            VecH v1;
-            Transform_Apply(modelMatrix, v0, &v1);
-
-            vertices[j + 0] = v1.x;
-            vertices[j + 1] = v1.y;
-            vertices[j + 2] = v1.z;
+            vertex->position[0] = vertexPos.x;
+            vertex->position[1] = vertexPos.y;
+            vertex->position[2] = vertexPos.z;
         }
 
+        // add vertex colors to vertex data
         ufbx_vertex_vec4 vertexColor = mesh->color_sets.data[0].vertex_color;
         for (int i = 0; i < vertexColor.indices.count; i++) {
+            // get the vertex color
             int colorIndex = vertexColor.indices.data[i];
             ufbx_vec4 color = vertexColor.values.data[colorIndex];
-            int vertexPosIndex = mesh->vertex_indices.data[i];
 
-            // apply vertex color for mesh
-            int j = (vertexPosIndex + currVerticesIndex) * stride;
-            vertices[j + 3] = color.x;
-            vertices[j + 4] = color.y;
-            vertices[j + 5] = color.z;
+            // and the offset of the vertex corresponding to this index
+            int vertexPosIndex = mesh->vertex_indices.data[i];
+            int j = (vertexPosIndex + currVerticesIndex);
+            Vertex* vertex = &vertices[j];
+
+            // printf("i: %u c: %u v: %u\n", i, colorIndex, vertexPosIndex);
+
+            vertex->color[0] = color.x;
+            vertex->color[1] = color.y;
+            vertex->color[2] = color.z;
         }
 
         // prepare index buffer for opengl
@@ -204,13 +210,20 @@ int main(void) {
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride * sizeof(GLfloat), (GLvoid*)0);
+    // the number of 4-byte data elements in the vertex
+    const size_t stride = sizeof(Vertex) / 4;
+
+    // mesh index attribute
     glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 1, GL_UNSIGNED_INT, GL_FALSE, sizeof(Vertex), (GLvoid*)0);
+
+    // position attribute
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)(1 * sizeof(GLuint)));
 
     // color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)(1 * sizeof(GLuint) + 3 * sizeof(GLfloat)));
 
     // bind element data
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
@@ -268,6 +281,7 @@ int main(void) {
         // bind uniforms
         glUniformMatrix4fv(projMatrixId, 1, GL_TRUE, perspectiveProjection.v);
         glUniformMatrix4fv(viewMatrixId, 1, GL_TRUE, camera.v);
+        glUniformMatrix4fv(modelMatricesId, meshes.count, GL_TRUE, modelMatrices);
 
         // bind vertex data
         glBindVertexArray(vao);
@@ -275,6 +289,9 @@ int main(void) {
         // render
         glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_INT, 0);
         //glDrawElementsBaseVertex(GL_TRIANGLES, indices.count, GL_UNSIGNED_INT, 0, 0);
+
+        // release render settings
+        glUseProgram(0);
         glBindVertexArray(0);
 
         // swap front & back buffers
