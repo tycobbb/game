@@ -3,13 +3,16 @@
 
 #include <stdbool.h>
 #include <GLFW/glfw3.h>
-#include "vec2.h"
+#include "spherical.h"
 
 // -- types --
 
-typedef struct {
+typedef struct Input {
+  /// if the game should quit
   bool quit;
-  Vec2 cameraTranslate;
+
+  /// the spherical delta for the camera
+  Spherical camera;
 } Input;
 
 // -- interface --

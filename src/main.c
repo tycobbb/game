@@ -13,8 +13,8 @@
 #include "mathutil.h"
 #include "shader.h"
 #include "shaderprogram.h"
+#include "spherical.h"
 #include "transform.h"
-#include "vec2.h"
 #include "vec3.h"
 #include "vertex.h"
 
@@ -25,7 +25,8 @@ void onFrameBufferSizeChanged(GLFWwindow* window, int width, int height);
 
 // -- constants --
 
-const float CAMERA_SPEED = 0.01f;
+/// the base camera speed in degrees
+const float CAMERA_SPEED = 3.0f;
 
 // -- globals --
 
@@ -112,7 +113,7 @@ int main(void) {
     // TODO: add logger w/ levels
     printf("\nscene:\n- meshes:   %zu\n- vertices: %zu\n- elements: %zu\n", meshes.count, numVertices, numElements);
 
-    // prepare buffers
+    // allocate opengl buffer data
     Vertex vertices[numElements];
     GLuint elements[numElements];
     GLfloat modelMatrices[meshes.count * TRANSFORM_LEN];
@@ -167,7 +168,7 @@ int main(void) {
             vertex->color = Vec3_FromDouble(color.v);
         }
 
-        // prepare index buffer for opengl
+        // prepare element buffer for opengl
         for(int i = 0; i < mesh->num_indices; i++) {
             elements[i + currIndicesIndex] = i + currVerticesIndex;
         }
@@ -176,7 +177,7 @@ int main(void) {
         currIndicesIndex += mesh->num_indices;
     }
 
-    // free fbx data
+    // free scene
     ufbx_free_scene(scene);
 
     // create buffers
@@ -222,9 +223,15 @@ int main(void) {
     glBindVertexArray(0);
 
     // define camera properties
-    Vec3 eye = { .x = 0.5f, .y = 2.0f, .z = 10.0f };
+    Vec3 center = { .x = 0.5f, .y = 2.0f, .z = 0.0f };
     Vec3 gaze = { .x = 0.0f, .y = 0.0f, .z = -1.0f };
     Vec3 up = { .x = 0.0f, .y = 1.0f, .z = 0.0f };
+
+    // the initial camera spherical position on the sphere
+    Spherical cameraSpherePos = {
+        .radius = 10.0f,
+        .azimuth = PI_2,
+    };
 
     // enable depth testing
     glEnable(GL_DEPTH_TEST);
@@ -240,12 +247,22 @@ int main(void) {
             glfwSetWindowShouldClose(window, true);
         }
 
-        // move camera
-        Vec2 cameraTranslate;
-        Vec2_Scale(input.cameraTranslate, CAMERA_SPEED, &cameraTranslate);
+        // scale the camera input speed
+        Spherical cameraSphereDelta = input.camera;
+        Spherical_Scale(&cameraSphereDelta, CAMERA_SPEED * DEG2RAD);
 
-        eye.x += cameraTranslate.x;
-        eye.y += cameraTranslate.y;
+        // move the camera
+        Spherical_Add(cameraSpherePos, cameraSphereDelta, &cameraSpherePos);
+
+        // calculate the camera eye position & look direction
+        Vec3 cameraPos = Spherical_ToCartesian(&cameraSpherePos);
+
+        Vec3 gaze;
+        Vec3_Scale(cameraPos, -1.0f, &gaze);
+        Vec3_Normalize(gaze, &gaze);
+
+        Vec3 eye = cameraPos;
+        Vec3_Add(eye, center, &eye);
 
         // create perspective transform
         Transform perspectiveProjection;
@@ -291,11 +308,10 @@ int main(void) {
         glfwPollEvents();
     }
 
-    // TODO: do we need some kind of quit function?
-
     // free resources
     ShaderProgram_Release(shaderProgram);
 
+    // quit
     glfwTerminate();
 
     return 0;
