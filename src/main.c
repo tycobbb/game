@@ -1,4 +1,3 @@
-
 #define GL_SILENCE_DEPRECATION
 #define GLFW_INCLUDE_GLCOREARB
 
@@ -17,6 +16,7 @@
 #include "transform.h"
 #include "vec2.h"
 #include "vec3.h"
+#include "vertex.h"
 
 // -- interface --
 
@@ -30,14 +30,6 @@ const float CAMERA_SPEED = 0.01f;
 // -- globals --
 
 float windowAspectRatio = -1.0f;
-
-// -- types --
-
-typedef struct Vertex {
-    GLuint meshIndex;
-    GLfloat position[3];
-    GLfloat color[3];
-} Vertex;
 
 // -- main --
 
@@ -107,29 +99,38 @@ int main(void) {
 
     ufbx_mesh_list meshes = scene->meshes;
 
+    // calculate the total number of vertices and indices
     size_t numVertices = 0;
-    size_t numIndices = 0;
+    size_t numElements = 0;
+
     for(int meshIndex = 0; meshIndex < meshes.count; meshIndex++) {
         ufbx_mesh* mesh = scene->meshes.data[meshIndex];
         numVertices += mesh->num_vertices;
-        numIndices += mesh->num_indices;
+        numElements += mesh->num_indices;
     }
 
-    // TODO: access variable for matrix length instead of constant 16
-    Vertex vertices[numVertices];
-    GLuint indices[numIndices];
+    // TODO: add logger w/ levels
+    printf("\nscene:\n- meshes:   %zu\n- vertices: %zu\n- elements: %zu\n", meshes.count, numVertices, numElements);
+
+    // prepare buffers
+    Vertex vertices[numElements];
+    GLuint elements[numElements];
     GLfloat modelMatrices[meshes.count * TRANSFORM_LEN];
 
+    for (int i = 0; i < numVertices; i++) {
+        Vertex_Init(&vertices[i]);
+    }
+
+    // prepare opengl data
     int currVerticesIndex = 0;
     int currIndicesIndex = 0;
-
-    // TODO: add logger w/ levels
-    printf("scene\n---\nmeshes:   %zu\nvertices: %zu\nindices:  %zu\n", meshes.count, numVertices, numIndices);
 
     for (int meshIndex = 0; meshIndex < meshes.count; meshIndex++) {
         ufbx_mesh* mesh = scene->meshes.data[meshIndex];
 
-        // prepare model matrix for opengl
+        printf("\nmesh %d:\n- vertices: %zu\n- elements: %zu\n- normals:  %zu\n- colors:   %zu\n", meshIndex, mesh->num_vertices, mesh->num_indices, mesh->vertex_normal.indices.count, mesh->vertex_color.indices.count);
+
+        // prepare model matrix buffer for opengl
         ufbx_node_list instances = mesh->instances;
         assert(instances.count == 1);
 
@@ -143,11 +144,7 @@ int main(void) {
         }
 
         // prepare vertex buffer for opengl
-        ufbx_vec3_list vertexPositions = mesh->vertices;
-        assert(vertexPositions.count == mesh->num_vertices);
-
-        // add mesh index & vertex positions to vertex data
-        for (int i = 0; i < mesh->num_vertices; i++) {
+        for (int i = 0; i < mesh->num_indices; i++) {
             int j = (i + currVerticesIndex);
             Vertex* vertex = &vertices[j];
 
@@ -155,43 +152,32 @@ int main(void) {
             vertex->meshIndex = meshIndex;
 
             // apply position from mesh
-            ufbx_vec3 vertexPos = vertexPositions.data[i];
+            ufbx_vertex_vec3 positions = mesh->vertex_position;
+            ufbx_vec3 pos = positions.values.data[positions.indices.data[i]];
+            vertex->pos = Vec3_FromDouble(pos.v);
 
-            vertex->position[0] = vertexPos.x;
-            vertex->position[1] = vertexPos.y;
-            vertex->position[2] = vertexPos.z;
-        }
+            // get the vertex normal
+            ufbx_vertex_vec3 normals = mesh->vertex_normal;
+            ufbx_vec3 normal = normals.values.data[normals.indices.data[i]];
+            vertex->normal = Vec3_FromDouble(normal.v);
 
-        // add vertex colors to vertex data
-        ufbx_vertex_vec4 vertexColor = mesh->color_sets.data[0].vertex_color;
-        for (int i = 0; i < vertexColor.indices.count; i++) {
             // get the vertex color
-            int colorIndex = vertexColor.indices.data[i];
-            ufbx_vec4 color = vertexColor.values.data[colorIndex];
-
-            // and the offset of the vertex corresponding to this index
-            int vertexPosIndex = mesh->vertex_indices.data[i];
-            int j = (vertexPosIndex + currVerticesIndex);
-            Vertex* vertex = &vertices[j];
-
-            // printf("i: %u c: %u v: %u\n", i, colorIndex, vertexPosIndex);
-
-            vertex->color[0] = color.x;
-            vertex->color[1] = color.y;
-            vertex->color[2] = color.z;
+            ufbx_vertex_vec4 colors = mesh->vertex_color;
+            ufbx_vec4 color = colors.values.data[colors.indices.data[i]];
+            vertex->color = Vec3_FromDouble(color.v);
         }
 
         // prepare index buffer for opengl
-        ufbx_uint32_list vertexIndices = mesh->vertex_indices;
-        assert(vertexIndices.count == mesh->num_indices);
-
-        for(int i = 0; i < vertexIndices.count; i++) {
-            indices[i + currIndicesIndex] = vertexIndices.data[i] + currVerticesIndex;
+        for(int i = 0; i < mesh->num_indices; i++) {
+            elements[i + currIndicesIndex] = i + currVerticesIndex;
         }
 
         currVerticesIndex += mesh->num_vertices;
         currIndicesIndex += mesh->num_indices;
     }
+
+    // free fbx data
+    ufbx_free_scene(scene);
 
     // create buffers
     GLuint vao;
@@ -221,18 +207,22 @@ int main(void) {
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)(1 * sizeof(GLuint)));
 
-    // color attribute
+    // normal attribute
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)(1 * sizeof(GLuint) + 3 * sizeof(GLfloat)));
 
+    // color attribute
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)(1 * sizeof(GLuint) + 6 * sizeof(GLfloat)));
+
     // bind element data
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
 
     glBindVertexArray(0);
 
     // define camera properties
-    Vec3 eye = { .x = 0.0f, .y = 0.0f, .z = 10.0f };
+    Vec3 eye = { .x = 0.5f, .y = 2.0f, .z = 10.0f };
     Vec3 gaze = { .x = 0.0f, .y = 0.0f, .z = -1.0f };
     Vec3 up = { .x = 0.0f, .y = 1.0f, .z = 0.0f };
 
@@ -287,7 +277,7 @@ int main(void) {
         glBindVertexArray(vao);
 
         // render
-        glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, numElements, GL_UNSIGNED_INT, 0);
         //glDrawElementsBaseVertex(GL_TRIANGLES, indices.count, GL_UNSIGNED_INT, 0, 0);
 
         // release render settings
@@ -304,7 +294,6 @@ int main(void) {
     // TODO: do we need some kind of quit function?
 
     // free resources
-    ufbx_free_scene(scene);
     ShaderProgram_Release(shaderProgram);
 
     glfwTerminate();

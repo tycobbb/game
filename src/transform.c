@@ -15,10 +15,8 @@ void Transform_GetColumn(Transform a, int j, VecH* out);
 // -- implementation --
 
 void Transform_Init(Transform* this) {
-    for (int i = 0; i < ARRAY_LEN(this->matrix); i++) {
-        for (int j = 0; j < ARRAY_LEN(this->matrix[i]); j++) {
-            this->matrix[i][j] = 0;
-        }
+    for (int i = 0; i < ARRAY_LEN(this->v); i++) {
+        this->v[i] = 0;
     }
 }
 
