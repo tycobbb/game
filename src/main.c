@@ -10,6 +10,7 @@
 #include <ufbx.h>
 #include "input.h"
 #include "file.h"
+#include "log.h"
 #include "mathutil.h"
 #include "shader.h"
 #include "shaderprogram.h"
@@ -48,7 +49,7 @@ int main(void) {
 
     // init glfw
     if (!initialize()) {
-        return 4;
+        return 3;
     }
 
     // create window w/ title
@@ -62,7 +63,7 @@ int main(void) {
 
     if (window == NULL) {
         glfwTerminate();
-        return -1;
+        return 4;
     }
 
     // make the window the current context
@@ -94,8 +95,8 @@ int main(void) {
 
     ufbx_scene* scene = ufbx_load_file("assets/scene.fbx", &sceneLoadOpts, &sceneLoadError);
     if (scene == NULL) {
-        printf("ERROR::SCENE::LOAD_FAILED\n%s\n", sceneLoadError.description.data);
-        return 3;
+        LOGE("error - scene load failed!\n%s\n", sceneLoadError.description.data);
+        return 5;
     }
 
     ufbx_mesh_list meshes = scene->meshes;
@@ -111,7 +112,7 @@ int main(void) {
     }
 
     // TODO: add logger w/ levels
-    printf("\nscene:\n- meshes:   %zu\n- vertices: %zu\n- elements: %zu\n", meshes.count, numVertices, numElements);
+    LOGI("\nscene:\n- meshes:   %zu\n- vertices: %zu\n- elements: %zu\n", meshes.count, numVertices, numElements);
 
     // allocate opengl buffer data
     Vertex vertices[numElements];
@@ -128,7 +129,7 @@ int main(void) {
     for (int meshIndex = 0; meshIndex < meshes.count; meshIndex++) {
         ufbx_mesh* mesh = scene->meshes.data[meshIndex];
 
-        printf("\nmesh %d:\n- vertices: %zu\n- elements: %zu\n- normals:  %zu\n- colors:   %zu\n", meshIndex, mesh->num_vertices, mesh->num_indices, mesh->vertex_normal.indices.count, mesh->vertex_color.indices.count);
+        LOGI("\nmesh %d:\n- vertices: %zu\n- elements: %zu\n- normals:  %zu\n- colors:   %zu\n", meshIndex, mesh->num_vertices, mesh->num_indices, mesh->vertex_normal.indices.count, mesh->vertex_color.indices.count);
 
         // prepare model matrix buffer for opengl
         ufbx_node_list instances = mesh->instances;
@@ -166,6 +167,8 @@ int main(void) {
             ufbx_vertex_vec4 colors = mesh->vertex_color;
             ufbx_vec4 color = colors.values.data[colors.indices.data[i]];
             vertex->color = Vec3_FromDouble(color.v);
+
+            LOGD("%sm: %u | v: %3u | p: (%+0.1f, %+0.1f, %+0.1f) | n: (%+0.1f, %+0.1f, %+0.1f)\n", i % 3 == 0 ? "\n" : "", meshIndex, i, vertex->pos.x, vertex->pos.y, vertex->pos.z, vertex->normal.x, vertex->normal.y, vertex->normal.z);
         }
 
         // prepare element buffer for opengl
