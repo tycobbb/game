@@ -14,6 +14,10 @@ typedef struct {
     };
 } Vec3;
 
+// -- constants --
+
+const Vec3 Vec3_Up;
+
 // -- interface --
 
 void Vec3_Init(Vec3* this);

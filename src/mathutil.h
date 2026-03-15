@@ -9,4 +9,9 @@
 #define PI_2    1.570796326794897f
 #define DEG2RAD PI / 180.0f
 
+// -- macros --
+
+#define MIN(x, y) (y < x ? y : x)
+#define MAX(x, y) (y > x ? y : x)
+
 #endif

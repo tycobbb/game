@@ -1,6 +1,10 @@
 #include <math.h>
 #include "vec3.h"
 
+// -- constants --
+
+const Vec3 Vec3_Up = { .x = 0, .y = 1, .z = 0 };
+
 // -- implementation --
 
 void Vec3_Init(Vec3 *this) {

@@ -26,7 +26,7 @@ void onFrameBufferSizeChanged(GLFWwindow* window, int width, int height);
 // -- constants --
 
 /// the base camera speed in degrees
-const float CAMERA_SPEED = 3.0f;
+const float CAMERA_SPEED = 1.5f;
 
 // -- globals --
 
@@ -118,13 +118,12 @@ int main(void) {
     GLuint elements[numElements];
     GLfloat modelMatrices[meshes.count * TRANSFORM_LEN];
 
-    for (int i = 0; i < numVertices; i++) {
+    for (int i = 0; i < numElements; i++) {
         Vertex_Init(&vertices[i]);
     }
 
     // prepare opengl data
-    int currVerticesIndex = 0;
-    int currIndicesIndex = 0;
+    int currElementsIndex = 0;
 
     for (int meshIndex = 0; meshIndex < meshes.count; meshIndex++) {
         ufbx_mesh* mesh = scene->meshes.data[meshIndex];
@@ -145,8 +144,9 @@ int main(void) {
         }
 
         // prepare vertex buffer for opengl
-        for (int i = 0; i < mesh->num_indices; i++) {
-            int j = (i + currVerticesIndex);
+        size_t numElements = mesh->num_indices;
+        for (int i = 0; i < numElements; i++) {
+            int j = (i + currElementsIndex);
             Vertex* vertex = &vertices[j];
 
             // add the mesh index
@@ -169,12 +169,11 @@ int main(void) {
         }
 
         // prepare element buffer for opengl
-        for(int i = 0; i < mesh->num_indices; i++) {
-            elements[i + currIndicesIndex] = i + currVerticesIndex;
+        for(int i = 0; i < numElements; i++) {
+            elements[i + currElementsIndex] = i + currElementsIndex;
         }
 
-        currVerticesIndex += mesh->num_vertices;
-        currIndicesIndex += mesh->num_indices;
+        currElementsIndex += numElements;
     }
 
     // free scene
@@ -222,15 +221,18 @@ int main(void) {
 
     glBindVertexArray(0);
 
-    // define camera properties
-    Vec3 center = { .x = 0.5f, .y = 2.0f, .z = 0.0f };
-    Vec3 gaze = { .x = 0.0f, .y = 0.0f, .z = -1.0f };
-    Vec3 up = { .x = 0.0f, .y = 1.0f, .z = 0.0f };
-
-    // the initial camera spherical position on the sphere
+    // the spherical position of the camera
     Spherical cameraSpherePos = {
         .radius = 10.0f,
         .azimuth = PI_2,
+        .zenith = 0.0f,
+    };
+
+    // the look offset of the camera
+    Vec3 cameraLookOffset = {
+        .x = 0.5f,
+        .y = 2.0f,
+        .z = 0.0f
     };
 
     // enable depth testing
@@ -262,7 +264,7 @@ int main(void) {
         Vec3_Normalize(gaze, &gaze);
 
         Vec3 eye = cameraPos;
-        Vec3_Add(eye, center, &eye);
+        Vec3_Add(eye, cameraLookOffset, &eye);
 
         // create perspective transform
         Transform perspectiveProjection;
@@ -276,7 +278,7 @@ int main(void) {
 
         // create camera transform
         Transform camera;
-        Transform_InitCamera(&camera, eye, gaze, up);
+        Transform_InitCamera(&camera, eye, gaze, Vec3_Up);
 
         // clear the screen
         glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
