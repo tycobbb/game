@@ -21,7 +21,8 @@ tb-clang = clang \
 	-I"$(db-inc)" \
 	-I"$(db-src)" \
 	-L"$(db-lib)" \
-	-lglfw.3 -framework OpenGL -Wl,-rpath,"@executable_path/../lib"
+	-lglfw.3 -framework OpenGL \
+	-Wl,-rpath,"@executable_path/../lib"
 
 # -- targets --
 # -- t/build

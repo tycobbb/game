@@ -1,5 +1,6 @@
 {
   "makefile.configureOnOpen": false,
+  "cmake.buildDirectory": "${workspaceFolder}/dst",
   "[c]": {
     "editor.tabSize": 4
   },

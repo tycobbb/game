@@ -5,7 +5,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug",
+      "name": "debug",
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceRoot}/dst/game",
